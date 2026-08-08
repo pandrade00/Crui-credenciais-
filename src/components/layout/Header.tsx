@@ -1,5 +1,5 @@
 import {styled} from '@stitches/react'
-import LinkButton from './LinkButton'
+import ButtonNewCredencitial from './ButtonNewCredencitial'
 
 const HeaderStyled = styled('header', {
   backgroundColor: '#FFFFFF',
@@ -7,6 +7,10 @@ const HeaderStyled = styled('header', {
   display: 'flex',
   alignItems: 'center',
   boxShadow: '0px 1px 1px #D3D7DB',
+  gap: '16px',
+  height: '80px',
+  width: '100%',
+  boxSizing: 'border-box',
   
   'h1': {
     color: '#000000',
@@ -23,8 +27,8 @@ const HeaderStyled = styled('header', {
     borderRadius: '6px',
     border: '1px solid #ccc',
     width: '260px',
-    height: '30px',
-    padding: '0 12px', 
+    height: '38px',
+    padding: '0 14px', 
     gap: '8px', 
   },
 
@@ -58,7 +62,7 @@ function Header() {
 
         <input type="text" placeholder="Buscar credencial" />
       </div>
-      <LinkButton to="/add-credential" text="Adicionar credencial" />
+      <ButtonNewCredencitial to="/add-credential" text="Nova credencial" />
        
     </HeaderStyled>
   )

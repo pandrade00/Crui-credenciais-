@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import CardCredencial from '../layout/CardCredencial';
+import CardCredencial from '../layout/CardCredencial';;
 
 import { styled } from '@stitches/react';
 
@@ -17,10 +17,6 @@ const DivStyled = styled('div', {
 
 
 function Credential() {
-
-
-  
-
 
   return (
 

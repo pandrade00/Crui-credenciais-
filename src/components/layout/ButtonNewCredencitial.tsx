@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom';
+
 import { styled } from '@stitches/react';
 
-const StyledLink = styled(Link, {
+const StyledButton = styled('button', {
     backgroundColor: '#0064C6',
     color: '#FFFFFF',
     fontSize: '14px',
@@ -17,14 +17,14 @@ const StyledLink = styled(Link, {
     boxSizing: 'border-box',
 });
 
-interface LinkButtonProps {
-    to: string;
+interface ButtonProps {
+    onClick: () => void;
     text: string;
 }
 
-function ButtonNewCredencitial({ to, text }: LinkButtonProps) {
+function ButtonNewCredencitial({ onClick, text }: ButtonProps) {
     return (
-        <StyledLink to={to}>
+        <StyledButton onClick={onClick}>
             <svg 
                 xmlns="http://www.w3.org/2000/svg" 
                 width="16" 
@@ -41,7 +41,7 @@ function ButtonNewCredencitial({ to, text }: LinkButtonProps) {
                 <line x1="8" y1="12" x2="16" y2="12"></line>
             </svg>
             {text}
-        </StyledLink>
+        </StyledButton>
         
     );
 }

@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import {styled} from '@stitches/react'
 import ButtonNewCredencitial from './ButtonNewCredencitial'
+import Modal from '../form/Modal'
 
 const HeaderStyled = styled('header', {
   backgroundColor: '#FFFFFF',
@@ -50,7 +52,12 @@ const HeaderStyled = styled('header', {
   },
 });
 
+
+
 function Header() {
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <HeaderStyled>
       <h1>Credenciais</h1>
@@ -62,7 +69,9 @@ function Header() {
 
         <input type="text" placeholder="Buscar credencial" />
       </div>
-      <ButtonNewCredencitial to="/?form=novo" text="Nova credencial" />
+
+      <ButtonNewCredencitial onClick={() => setIsModalOpen(true)} text="Nova credencial" />
+      {isModalOpen && <Modal onClose={() => setIsModalOpen(false)} />}
        
     </HeaderStyled>
   )

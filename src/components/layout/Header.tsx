@@ -62,7 +62,7 @@ function Header() {
 
         <input type="text" placeholder="Buscar credencial" />
       </div>
-      <ButtonNewCredencitial to="/add-credential" text="Nova credencial" />
+      <ButtonNewCredencitial to="/?form=novo" text="Nova credencial" />
        
     </HeaderStyled>
   )

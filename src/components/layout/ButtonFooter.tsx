@@ -7,6 +7,15 @@ const ButtonStyled = styled(Link, {
     fontFamily: 'Arial',
     fontWeight: 'bold',
     textDecoration: 'none',
+    padding: '8px 16px',
+    borderRadius: '6px',
+    backgroundColor: 'transparent',
+    transition: 'background-color 0.2s, color 0.2s',
+    
+    '&:hover': {
+        backgroundColor: '#F4F5F7',
+        color: '#8A9DB0',
+    },
 
 });
 

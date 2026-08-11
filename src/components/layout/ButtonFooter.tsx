@@ -1,7 +1,6 @@
-import { Link } from 'react-router-dom';
 import { styled } from '@stitches/react';
 
-const ButtonStyled = styled(Link, {
+const ButtonStyled = styled('button', {
     color: '#B4B6B8',
     fontSize: '14px',
     fontFamily: 'Arial',
@@ -11,26 +10,29 @@ const ButtonStyled = styled(Link, {
     borderRadius: '6px',
     backgroundColor: 'transparent',
     transition: 'background-color 0.2s, color 0.2s',
-    
-    '&:hover': {
+    border: 'none',
+    cursor: 'pointer',   
+   '&:hover': {
         backgroundColor: '#F4F5F7',
         color: '#8A9DB0',
     },
+  
+    
+  });
 
-});
-
-
-interface LinkButtonProps {
-    to: string;
+interface ButtonProps {
+    onClick?: () => void;
     text: string;
 }
 
 
 
-function ButtonFooter({ to, text }: LinkButtonProps) {
+
+function ButtonFooter({ onClick, text }: ButtonProps) {
   return (
-    <ButtonStyled to={to}>
-    {text}
+    <ButtonStyled type="button" 
+      onClick={onClick} >
+      {text}
     </ButtonStyled>
     
   );

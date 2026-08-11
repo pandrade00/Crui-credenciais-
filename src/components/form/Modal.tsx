@@ -1,6 +1,11 @@
-import {styled} from '@stitches/react'
+import { styled } from '@stitches/react'
 import { createPortal } from 'react-dom';
-
+import { useEffect, useState } from 'react';
+import { getAllProviders, getProviderParameters, createCredentialByProvider } from '../../service/api';
+import type ProviderI from '../../interfaces/ProviderInterface';
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
+import { validateCredentialForm } from '../../schemas/credentialSchema';
 
 const ModalOverlay = styled('div', {
     position: 'fixed',
@@ -30,7 +35,7 @@ const ModalContent = styled('div', {
     display: 'flex',
     flexDirection: 'column',
     fontFamily: 'Arial',
-
+    overflowY: 'auto',
 });
 
 const ModalHeader = styled('div', {
@@ -47,7 +52,6 @@ const ModalHeader = styled('div', {
         color: '#333',
     },
     'button': {
-
         background: '#F1F2F6',
         borderRadius: '8px',
         width: '40px',
@@ -60,7 +64,8 @@ const ModalHeader = styled('div', {
         fontSize: '24px',
         color:'#999',
         '&:hover': { 
-            color: '#333' },
+            color: '#333' 
+        },
     },
 });
 
@@ -86,7 +91,6 @@ const Label = styled('label', {
     gap: '4px',
 });
     
-
 const Input = styled('input', {
     padding: '14px 16px',
     borderRadius: '8px',
@@ -108,7 +112,8 @@ const Select = styled('select', {
     fontSize: '14px',
     color: '#333',
     '&:focus': {
-        borderColor: '#0056b3'},
+        borderColor: '#0056b3'
+    },
     outline: 'none',
     fontFamily: 'Arial',
     backgroundColor: '#fff',
@@ -145,76 +150,240 @@ const Button = styled('button', {
             },
         },
     },
+});
 
+const AlertMessage = styled('div', {
+    padding: '10px 14px',
+    borderRadius: '6px',
+    fontSize: '13px',
+    fontFamily: 'Arial, sans-serif',
+    marginBottom: '16px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    backgroundColor: '#FEE2E2',
+    color: '#991B1B',
+    border: '1px solid #F87171',
 });
 
 interface ModalProps {
     onClose: () => void;
-    onAdd: (dados: { fornecedor: string; nome: string; tipoServico: string }) => void;
+    onAdd: () => void;
 }
 
-
 function Modal({ onClose, onAdd }: ModalProps) {
+    const [providers, setProviders] = useState<ProviderI[]>([]);
+    const [selectedProviderId, setSelectedProviderId] = useState<string>('');
+    const [providerParameters, setProviderParameters] = useState<any[]>([]);
+    const [availableServiceTypes, setAvailableServiceTypes] = useState<string[]>([]);
+    const [selectedServiceType, setSelectedServiceType] = useState<string>('');
+    const [loading, setLoading] = useState<boolean>(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    
+    const { token } = useAuth();
+    const { showToast } = useToast();
 
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    useEffect(() => {
+        async function fetchProviders() {
+            if (!token) return; 
+
+            try {
+                const data = await getAllProviders(token as string, 1);
+                setProviders(data);
+            } catch (error) {
+                console.error('Erro ao carregar provedores:', error);
+            }
+        }
+        fetchProviders();
+    }, [token]); 
+
+    useEffect(() => {
+        if (!selectedProviderId || !token) {
+            setProviderParameters([]);
+            setAvailableServiceTypes([]);
+            setSelectedServiceType('');
+            return;
+        }
+
+        async function fetchParameters() {
+            try {
+                const data = await getProviderParameters(token as string, selectedProviderId);
+                const params = data?.parameters || (Array.isArray(data) ? data : []);
+                const services = data?.service_types || [];
+                
+                setProviderParameters(params);
+                setAvailableServiceTypes(services);
+                
+                if (services.length > 0) {
+                    setSelectedServiceType(services[0]);
+                } else {
+                    setSelectedServiceType('');
+                }
+            } catch (error) {
+                console.error('Erro ao obter parâmetros do provedor:', error);
+                setProviderParameters([]);
+                setAvailableServiceTypes([]);
+                setSelectedServiceType('');
+            }
+        }
+
+        fetchParameters();
+    }, [selectedProviderId, token]);
+
+    const serviceLabels: Record<string, string> = {
+        road: 'Rodoviário',
+        airway: 'Aéreo',
+        hotel: 'Hotelaria',
+        vehicle: 'Veículo',
+        offline_hotel: 'Hotel Offline',
+    };
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        setErrorMessage(null);
 
         const formData = new FormData(e.currentTarget);
+        const description = (formData.get('nome') as string) || '';
+        const providerId = (formData.get('fornecedor') as string) || selectedProviderId;
+        const serviceType = (formData.get('tipoServico') as string) || selectedServiceType;
 
-        const novaCredencial = {
-            fornecedor: formData.get('fornecedor') as string,
-            nome: formData.get('nome') as string,
-            tipoServico: formData.get('tipoServico') as string,
+        const paramValuesMap: Record<string, string> = {};
+        const parameters = providerParameters.map((param) => {
+            const fieldValue = (formData.get(`param_${param.uuid}`) as string) || '';
+            paramValuesMap[param.uuid] = fieldValue;
+            return {
+                credential_parameter_uuid: param.uuid,
+                value: fieldValue,
+            };
+        });
+
+        // Validação Yup
+        const validation = await validateCredentialForm(
+            { nome: description, fornecedor: providerId, tipoServico: serviceType },
+            providerParameters,
+            paramValuesMap,
+            false
+        );
+
+        if (!validation.isValid) {
+            setErrorMessage(validation.error || 'Preencha todos os campos obrigatórios.');
+            return;
+        }
+
+        if (!token) {
+            setErrorMessage("Sessão expirada ou não encontrada.");
+            return;
+        }
+
+        const payload = {
+            description,
+            provider_id: providerId,
+            service_type: serviceType,
+            parameters,
         };
 
-        onAdd(novaCredencial);
-        onClose();
-    }
+        try {
+            setLoading(true);
+            
+            await createCredentialByProvider(token as string, selectedProviderId, payload);
+            
+            showToast("Credencial cadastrada com sucesso!", "success");
+            onAdd(); 
+            onClose(); 
+        } catch (error: any) {
+            console.error('Erro ao adicionar credencial:', error);
+            setErrorMessage(error?.message || 'Não foi possível salvar a credencial.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return createPortal(
         <ModalOverlay onClick={onClose}>
-                <ModalContent onClick={(e) => e.stopPropagation()} >
-                    <ModalHeader>
-                        <h2>Nova Credencial</h2>
-                        <button type="button" onClick={onClose}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
+            <ModalContent onClick={(e) => e.stopPropagation()} >
+                <ModalHeader>
+                    <h2>Nova Credencial</h2>
+                    <button type="button" onClick={onClose}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </ModalHeader>
+
+                <Form onSubmit={handleSubmit}>
+                    {errorMessage && (
+                        <AlertMessage>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="8" x2="12" y2="12" />
+                                <line x1="12" y1="16" x2="12.01" y2="16" />
                             </svg>
-                        </button>
-                    </ModalHeader>
+                            <span>{errorMessage}</span>
+                        </AlertMessage>
+                    )}
+                    <FormGroup>
+                        <Label>Fornecedor <span>Obrigatório</span></Label>
+                        <Select name="fornecedor" defaultValue="" required onChange={(e) => setSelectedProviderId(e.target.value)}>
+                            <option value="" disabled hidden>Selecione um fornecedor</option>
+                            {providers.map((provider) => (
+                                <option key={provider.uuid} value={provider.uuid}>
+                                    {provider.name}
+                                </option>
+                            ))}
+                        </Select>
+                    </FormGroup>
 
-                        <Form onSubmit={handleSubmit}>
-                            <FormGroup>
-                                <Label>Fornecedor <span>Obrigatório</span></Label>
-                                <Select name="fornecedor" defaultValue="">
-                                    <option value="" disabled hidden></option>
-                                </Select>
-                            </FormGroup>
+                    <FormGroup>
+                        <Label>Nome da Credencial <span>Obrigatório</span></Label>
+                        <Input name="nome" type="text" required placeholder="Digite o nome da credencial"/>
+                    </FormGroup>
 
-                            <FormGroup>
-                                <Label>Nome da Credencial <span>Obrigatório</span></Label>
-                                <Input name="nome" type="text" required/>
-                            </FormGroup>
+                    <FormGroup>
+                        <Label>Tipo de Serviço <span>Obrigatório</span></Label>
+                        <Select 
+                            name="tipoServico" 
+                            value={selectedServiceType} 
+                            onChange={(e) => setSelectedServiceType(e.target.value)}
+                            required
+                        >
+                            {availableServiceTypes.length === 0 ? (
+                                <option value="" disabled>Selecione um fornecedor primeiro</option>
+                            ) : (
+                                availableServiceTypes.map((type) => (
+                                    <option key={type} value={type}>
+                                        {serviceLabels[type] || type}
+                                    </option>
+                                ))
+                            )}
+                        </Select>
+                    </FormGroup>
 
-                            <FormGroup>
-                                <Label>Tipo de Serviço <span>Obrigatório</span></Label>
-                                <Select name="tipoServico" defaultValue="" required><option value="" disabled hidden> Selecione o tipo de serviço</option></Select>
-                            </FormGroup>
-                            
-                            <ButtonContainer>
-                                    <Button type='button' variant='secondary' onClick={onClose}>Cancelar</Button>
-                                    <Button type='submit'>Adicionar
-                                    </Button>
-                            </ButtonContainer>
-                            
-                        </Form>
-
-                </ModalContent>       
+                    {providerParameters.map((param) => (
+                        <FormGroup key={param.uuid}>
+                            <Label>
+                                {param.title || param.name || param.label || 'Parâmetro'}{' '}
+                                {param.required ? <span>Obrigatório</span> : null}
+                            </Label>
+                            <Input 
+                                name={`param_${param.uuid}`} 
+                                type={param.input_type === 'password' ? 'password' : (param.input_type === 'int' ? 'number' : 'text')} 
+                                required={param.required} 
+                                placeholder={param.description || `Digite o valor`}
+                            />
+                        </FormGroup>
+                    ))}
+                    
+                    <ButtonContainer>
+                            <Button type='button' variant='secondary' onClick={onClose}>Cancelar</Button>
+                            <Button type='submit' disabled={loading}>
+                                {loading ? 'Adicionando...' : 'Adicionar'}
+                            </Button>
+                    </ButtonContainer>
+                </Form>
+            </ModalContent>       
         </ModalOverlay>
     , document.body
-        
-
-
     )
 }
 

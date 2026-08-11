@@ -1,6 +1,25 @@
-import {styled} from '@stitches/react'
+import { styled } from '@stitches/react'
 import { createPortal } from 'react-dom';
+import { useEffect, useState } from 'react';
 
+import { getProviderParameters, getCredentialById, updateCredential } from '../../service/api'; 
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
+import { validateCredentialForm } from '../../schemas/credentialSchema';
+
+const AlertMessage = styled('div', {
+    padding: '10px 14px',
+    borderRadius: '6px',
+    fontSize: '13px',
+    fontFamily: 'Arial, sans-serif',
+    marginBottom: '16px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    backgroundColor: '#FEE2E2',
+    color: '#991B1B',
+    border: '1px solid #F87171',
+});
 
 const ModalOverlay = styled('div', {
     position: 'fixed',
@@ -30,7 +49,7 @@ const ModalContent = styled('div', {
     display: 'flex',
     flexDirection: 'column',
     fontFamily: 'Arial',
-
+    overflowY: 'auto',
 });
 
 const ModalHeader = styled('div', {
@@ -47,7 +66,6 @@ const ModalHeader = styled('div', {
         color: '#333',
     },
     'button': {
-
         background: '#F1F2F6',
         borderRadius: '8px',
         width: '40px',
@@ -60,7 +78,8 @@ const ModalHeader = styled('div', {
         fontSize: '24px',
         color:'#999',
         '&:hover': { 
-            color: '#333' },
+            color: '#333' 
+        },
     },
 });
 
@@ -86,7 +105,6 @@ const Label = styled('label', {
     gap: '4px',
 });
     
-
 const Input = styled('input', {
     padding: '14px 16px',
     borderRadius: '8px',
@@ -108,7 +126,8 @@ const Select = styled('select', {
     fontSize: '14px',
     color: '#333',
     '&:focus': {
-        borderColor: '#0056b3'},
+        borderColor: '#0056b3'
+    },
     outline: 'none',
     fontFamily: 'Arial',
     backgroundColor: '#fff',
@@ -145,59 +164,367 @@ const Button = styled('button', {
             },
         },
     },
-
 });
 
 interface ModalProps {
     onClose: () => void;
+    onSuccess?: () => void;
+    credential?: {
+        credentialId: string | number; 
+        description: string;
+        providerName: string;
+        providerId: string;
+        tipoServico: string;
+        credential_values?: any[];
+    };
 }
 
+const tipoDeServico: Record<string, string> = {
+    road: 'Rodoviário',
+    airway: 'Aéreo',
+    hotel: 'Hotelaria',
+    vehicle: 'Veículo',
+    offline_hotel: 'Hotel Offline',
+};
 
-function ModalEditar({ onClose }: ModalProps) {
+function extractParamValue(param: any, allSavedItems: any[], rawDataObj?: any): string {
+    if (!param) return '';
+    const paramUuid = String(param.uuid || param.id || '').trim();
+    const paramName = String(param.name || param.key || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const paramTitle = String(param.title || param.label || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    if (Array.isArray(allSavedItems)) {
+        // 1. Busca por UUID
+        if (paramUuid) {
+            for (const item of allSavedItems) {
+                const itemParamUuid = String(
+                    item.parameter?.uuid ||
+                    item.credential_parameter_uuid ||
+                    item.provider_parameter_uuid ||
+                    item.parameter_uuid ||
+                    item.parameter?.id ||
+                    item.parameter_id ||
+                    item.uuid ||
+                    item.id ||
+                    ''
+                ).trim();
+
+                if (itemParamUuid && itemParamUuid === paramUuid && item.value !== undefined && item.value !== null) {
+                    return String(item.value);
+                }
+            }
+        }
+
+        // 2. Busca por Nome / Chave
+        if (paramName) {
+            for (const item of allSavedItems) {
+                const itemName = String(
+                    item.name ||
+                    item.key ||
+                    item.parameter?.name ||
+                    item.parameter?.key ||
+                    ''
+                ).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                if (itemName && itemName === paramName && item.value !== undefined && item.value !== null) {
+                    return String(item.value);
+                }
+            }
+        }
+
+        // 3. Busca por Título / Rótulo
+        if (paramTitle) {
+            for (const item of allSavedItems) {
+                const itemTitle = String(
+                    item.title ||
+                    item.label ||
+                    item.parameter?.title ||
+                    item.parameter?.label ||
+                    ''
+                ).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                if (itemTitle && itemTitle === paramTitle && item.value !== undefined && item.value !== null) {
+                    return String(item.value);
+                }
+            }
+        }
+    }
+
+    
+    if (rawDataObj && typeof rawDataObj === 'object') {
+        if (param.uuid && rawDataObj[param.uuid] !== undefined) return String(rawDataObj[param.uuid]);
+        if (param.name && rawDataObj[param.name] !== undefined) return String(rawDataObj[param.name]);
+        if (rawDataObj.parameters && typeof rawDataObj.parameters === 'object' && !Array.isArray(rawDataObj.parameters)) {
+            if (param.uuid && rawDataObj.parameters[param.uuid] !== undefined) return String(rawDataObj.parameters[param.uuid]);
+            if (param.name && rawDataObj.parameters[param.name] !== undefined) return String(rawDataObj.parameters[param.name]);
+        }
+    }
+
+    return '';
+}
+
+function ModalEditar({ onClose, onSuccess, credential }: ModalProps) {
+    const [providerParameters, setProviderParameters] = useState<any[]>([]);
+    const [paramValues, setParamValues] = useState<Record<string, string>>({});
+    const [nome, setNome] = useState<string>(credential?.description || '');
+    const [tipoServico, setTipoServico] = useState<string>(credential?.tipoServico || '');
+    const [availableServiceTypes, setAvailableServiceTypes] = useState<string[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [saving, setSaving] = useState<boolean>(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const { token } = useAuth();
+    const { showToast } = useToast();
+
+    useEffect(() => {
+        if (credential?.description) {
+            setNome(credential.description);
+        }
+        if (credential?.tipoServico) {
+            setTipoServico(credential.tipoServico);
+        }
+    }, [credential]);
+
+    useEffect(() => {
+        async function fetchAllData() {
+            if (!credential?.credentialId || !token) return;
+
+            try {
+                setLoading(true);
+                
+               
+                const savedData = await getCredentialById(token as string, credential.credentialId);
+                
+                const provId = credential.providerId || savedData?.provider?.uuid;
+                let schemaParams: any[] = [];
+                let services: string[] = [];
+
+               
+                if (provId) {
+                    try {
+                        const schemaData = await getProviderParameters(token as string, provId);
+                        schemaParams = schemaData?.parameters || (Array.isArray(schemaData) ? schemaData : []);
+                        services = schemaData?.service_types || [];
+                    } catch (schemaErr) {
+                        console.warn("Erro ao buscar schema dos parâmetros:", schemaErr);
+                    }
+                }
+
+                
+                const allSavedItems: any[] = [
+                    ...(Array.isArray(savedData?.credential_values) ? savedData.credential_values : []),
+                    ...(Array.isArray(savedData?.parameters) ? savedData.parameters : []),
+                    ...(Array.isArray(savedData?.credential_parameters) ? savedData.credential_parameters : []),
+                    ...(Array.isArray(credential?.credential_values) ? credential.credential_values : []),
+                ];
+
+                if (savedData) {
+                    if (savedData.description) {
+                        setNome(savedData.description);
+                    }
+                    if (savedData.service_type) {
+                        setTipoServico(savedData.service_type);
+                    }
+                }
+
+                
+                if (schemaParams.length === 0 && allSavedItems.length > 0) {
+                    schemaParams = allSavedItems.map((cv: any) => ({
+                        uuid: cv.parameter?.uuid || cv.credential_parameter_uuid || cv.uuid,
+                        title: cv.parameter?.title || cv.name || 'Parâmetro',
+                        input_type: cv.parameter?.input_type || 'text',
+                        required: cv.parameter?.required ?? false,
+                        description: cv.parameter?.description || '',
+                    }));
+                }
+
+               
+                const valuesMap: Record<string, string> = {};
+                for (const param of schemaParams) {
+                    const val = extractParamValue(param, allSavedItems, savedData);
+                    valuesMap[param.uuid] = val;
+                }
+
+                setParamValues(valuesMap);
+                setProviderParameters(schemaParams);
+                if (services.length > 0) {
+                    setAvailableServiceTypes(services);
+                }
+            } catch (error) {
+                console.error('Erro ao obter dados para edição:', error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchAllData();
+    }, [credential, token]);
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setErrorMessage(null);
+
+        const formData = new FormData(e.currentTarget);
+        const description = (formData.get('nome') as string) || nome;
+        const selectedService = (formData.get('tipoServico') as string) || tipoServico;
+
+        const parameters = providerParameters.map((param) => {
+            const fieldValue = paramValues[param.uuid] !== undefined ? paramValues[param.uuid] : (formData.get(`param_${param.uuid}`) as string || '');
+            return {
+                credential_parameter_uuid: param.uuid,
+                value: fieldValue,
+            };
+        });
+
+        
+        const validation = await validateCredentialForm(
+            { nome: description, tipoServico: selectedService },
+            providerParameters,
+            paramValues,
+            true
+        );
+
+        if (!validation.isValid) {
+            setErrorMessage(validation.error || 'Preencha todos os campos obrigatórios.');
+            return;
+        }
+
+        if (!token || !credential?.credentialId) {
+            setErrorMessage("Sessão expirada ou não encontrada.");
+            return;
+        }
+
+        const payload = {
+            description,
+            service_type: selectedService,
+            parameters,
+        };
+
+        try {
+            setSaving(true);
+            await updateCredential(token as string, credential.credentialId, payload);
+            showToast("Credencial atualizada com sucesso!", "success");
+            if (onSuccess) {
+                onSuccess();
+            }
+            onClose();
+        } catch (error: any) {
+            console.error('Erro ao salvar alterações da credencial:', error);
+            setErrorMessage(error?.message || 'Não foi possível salvar as alterações da credencial.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     return createPortal(
         <ModalOverlay onClick={onClose}>
-                <ModalContent onClick={(e) => e.stopPropagation()} >
-                    <ModalHeader>
-                        <h2>Nova Credencial</h2>
-                        <button type="button" onClick={onClose}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
+            <ModalContent onClick={(e) => e.stopPropagation()} >
+                <ModalHeader>
+                    <h2>Editar Credencial</h2>
+                    <button type="button" onClick={onClose}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </ModalHeader>
+
+                <Form onSubmit={handleSubmit}>
+                    {errorMessage && (
+                        <AlertMessage>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="8" x2="12" y2="12" />
+                                <line x1="12" y1="16" x2="12.01" y2="16" />
                             </svg>
-                        </button>
-                    </ModalHeader>
+                            <span>{errorMessage}</span>
+                        </AlertMessage>
+                    )}
+                    <FormGroup>
+                        <Label>Fornecedor <span>Obrigatório</span></Label>
+                        <Select defaultValue={credential?.providerId} disabled>
+                            <option value={credential?.providerId}>{credential?.providerName}</option>
+                        </Select>
+                    </FormGroup>
 
-                        <Form onSubmit={(e) => e.preventDefault()}>
-                            <FormGroup>
-                                <Label>Fornecedor <span>Obrigatório</span></Label>
-                                <Select><option value=""></option></Select>
+                    <FormGroup>
+                        <Label>Nome da Credencial <span>Obrigatório</span></Label>
+                        <Input 
+                            type="text" 
+                            value={nome}
+                            onChange={(e) => setNome(e.target.value)}
+                            name="nome" 
+                            required 
+                        />
+                    </FormGroup>
+
+                    <FormGroup>
+                        <Label>Tipo de Serviço <span>Obrigatório</span></Label>
+                        <Select 
+                            value={tipoServico} 
+                            onChange={(e) => setTipoServico(e.target.value)}
+                            name="tipoServico" 
+                            required
+                        >
+                            {tipoServico && (
+                                <option value={tipoServico}>
+                                    {tipoDeServico[tipoServico] || tipoServico}
+                                </option>
+                            )}
+                            {availableServiceTypes.length > 0
+                                ? availableServiceTypes
+                                    .filter((type) => type !== tipoServico)
+                                    .map((type) => (
+                                        <option key={type} value={type}>
+                                            {tipoDeServico[type] || type}
+                                        </option>
+                                    ))
+                                : Object.entries(tipoDeServico)
+                                    .filter(([key]) => key !== tipoServico)
+                                    .map(([key, label]) => (
+                                        <option key={key} value={key}>
+                                            {label}
+                                        </option>
+                                    ))
+                            }
+                        </Select>
+                    </FormGroup>
+                    
+                    {loading ? (
+                        <p style={{ fontSize: '14px', color: '#515B64' }}>Carregando parâmetros...</p>
+                    ) : providerParameters.length > 0 ? (
+                        providerParameters.map((param) => (
+                            <FormGroup key={param.uuid}>
+                                <Label>
+                                    {param.title || param.name || param.label || 'Parâmetro'}{' '}
+                                    {param.required ? <span>Obrigatório</span> : null}
+                                </Label>
+                                <Input 
+                                    name={`param_${param.uuid}`} 
+                                    type={param.input_type === 'password' ? 'password' : (param.input_type === 'int' ? 'number' : 'text')} 
+                                    required={param.required} 
+                                    placeholder={param.description || `Digite o valor`}
+                                    value={paramValues[param.uuid] ?? ''} 
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setParamValues((prev) => ({ ...prev, [param.uuid]: val }));
+                                    }}
+                                />
                             </FormGroup>
-
-                            <FormGroup>
-                                <Label>Nome da Credencial <span>Obrigatório</span></Label>
-                                <Input type="text" />
-                            </FormGroup>
-
-                            <FormGroup>
-                                <Label>Tipo de Serviço <span>Obrigatório</span></Label>
-                                <Select defaultValue="" required><option value="" disabled hidden> Selecione o tipo de serviço</option></Select>
-                            </FormGroup>
-                            
-                            <ButtonContainer>
-                                    <Button type='button' variant='secondary' onClick={onClose}>Cancelar</Button>
-                                    <Button type='submit'>Adicionar
-                                    </Button>
-                            </ButtonContainer>
-                            
-                        </Form>
-
-                </ModalContent>       
-        </ModalOverlay>
-    , document.body
-        
-
-
-    )
+                        ))
+                    ) : (
+                        <p style={{ fontSize: '14px', color: '#8A9DB0' }}>Nenhum parâmetro configurável para este fornecedor.</p>
+                    )}
+                    
+                    <ButtonContainer>
+                        <Button type='button' variant='secondary' onClick={onClose}>Cancelar</Button>
+                        <Button type='submit' disabled={saving}>
+                            {saving ? 'Salvando...' : 'Salvar'}
+                        </Button>
+                    </ButtonContainer>
+                </Form>
+            </ModalContent>       
+        </ModalOverlay>,
+        document.body
+    );
 }
 
-export default ModalEditar
+export default ModalEditar;

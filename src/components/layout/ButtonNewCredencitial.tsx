@@ -16,6 +16,20 @@ const StyledButton = styled('button', {
     height: '38px',
     boxSizing: 'border-box',
     border: 'none',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    marginLeft: 'auto',
+    '&:hover': {
+        backgroundColor: '#0052A3',
+    },
+    '@media (min-width: 769px)': {
+        marginLeft: 0,
+    },
+    '@media (max-width: 480px)': {
+        fontSize: '13px',
+        padding: '0 10px',
+        height: '36px',
+    },
 });
 
 interface ButtonProps {

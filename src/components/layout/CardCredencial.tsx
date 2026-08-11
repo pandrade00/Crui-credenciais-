@@ -132,7 +132,13 @@ const CheckIcon = () => (
   </svg>
 );
 
-function CardCredencial() {
+interface CardCredencialProps {
+  nome: string;
+  fornecedor: string;
+  tipoServico: string;
+}
+
+function CardCredencial({ nome, fornecedor, tipoServico }: CardCredencialProps) {
 
   const [isAtivo, setIsAtivo] = useState(false);
 
@@ -141,18 +147,18 @@ function CardCredencial() {
     <InfosContainer>
        <Column>
          <label>Nome</label>
-         <Value></Value>
+         <Value>{nome}</Value>
        </Column>
     
     
        <Column>
          <label>Fornecedor</label>
-         <Value></Value>
+         <Value>{fornecedor}</Value>
        </Column>
 
        <Column>
          <label>Serviço</label>
-         <Value></Value>
+         <Value>{tipoServico}</Value>
        </Column>
     </InfosContainer>
 

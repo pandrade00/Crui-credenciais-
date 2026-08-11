@@ -71,7 +71,10 @@ function Header() {
       </div>
 
       <ButtonNewCredencitial onClick={() => setIsModalOpen(true)} text="Nova credencial" />
-      {isModalOpen && <Modal onClose={() => setIsModalOpen(false)} />}
+      {isModalOpen && <Modal 
+      onClose={() => setIsModalOpen(false)}
+      onAdd={(dados) => console.log("Dados recebidos:", dados)}
+       />}
        
     </HeaderStyled>
   )

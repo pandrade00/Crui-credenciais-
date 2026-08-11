@@ -15,6 +15,7 @@ const StyledButton = styled('button', {
     gap: '6px',
     height: '38px',
     boxSizing: 'border-box',
+    border: 'none',
 });
 
 interface ButtonProps {

@@ -22,7 +22,11 @@ function Credential() {
 
     <DivStyled>
 
-      <CardCredencial />
+      <CardCredencial
+        nome=""
+        fornecedor=""
+        tipoServico=""
+      />
       
     </DivStyled>
 

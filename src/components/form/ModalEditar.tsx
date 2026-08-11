@@ -150,26 +150,10 @@ const Button = styled('button', {
 
 interface ModalProps {
     onClose: () => void;
-    onAdd: (dados: { fornecedor: string; nome: string; tipoServico: string }) => void;
 }
 
 
-function Modal({ onClose, onAdd }: ModalProps) {
-
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-
-        const formData = new FormData(e.currentTarget);
-
-        const novaCredencial = {
-            fornecedor: formData.get('fornecedor') as string,
-            nome: formData.get('nome') as string,
-            tipoServico: formData.get('tipoServico') as string,
-        };
-
-        onAdd(novaCredencial);
-        onClose();
-    }
+function ModalEditar({ onClose }: ModalProps) {
     return createPortal(
         <ModalOverlay onClick={onClose}>
                 <ModalContent onClick={(e) => e.stopPropagation()} >
@@ -183,22 +167,20 @@ function Modal({ onClose, onAdd }: ModalProps) {
                         </button>
                     </ModalHeader>
 
-                        <Form onSubmit={handleSubmit}>
+                        <Form onSubmit={(e) => e.preventDefault()}>
                             <FormGroup>
                                 <Label>Fornecedor <span>Obrigatório</span></Label>
-                                <Select name="fornecedor" defaultValue="">
-                                    <option value="" disabled hidden></option>
-                                </Select>
+                                <Select><option value=""></option></Select>
                             </FormGroup>
 
                             <FormGroup>
                                 <Label>Nome da Credencial <span>Obrigatório</span></Label>
-                                <Input name="nome" type="text" required/>
+                                <Input type="text" />
                             </FormGroup>
 
                             <FormGroup>
                                 <Label>Tipo de Serviço <span>Obrigatório</span></Label>
-                                <Select name="tipoServico" defaultValue="" required><option value="" disabled hidden> Selecione o tipo de serviço</option></Select>
+                                <Select defaultValue="" required><option value="" disabled hidden> Selecione o tipo de serviço</option></Select>
                             </FormGroup>
                             
                             <ButtonContainer>
@@ -218,4 +200,4 @@ function Modal({ onClose, onAdd }: ModalProps) {
     )
 }
 
-export default Modal
+export default ModalEditar

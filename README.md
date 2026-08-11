@@ -38,8 +38,8 @@ cp .env.example .env
 
 ```env
 VITE_API_URL=https://teste.biztrip.com.br/api/v1
-VITE_USER_EMAIL=seu_email@dominio.com
-VITE_USER_PASSWORD=sua_senha
+VITE_USER_EMAIL=
+VITE_USER_PASSWORD=
 ```
 
 ## Como Rodar o Projeto

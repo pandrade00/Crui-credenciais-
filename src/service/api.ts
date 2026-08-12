@@ -244,10 +244,9 @@ function createCredentialByProvider(
 
 function updateCredential(
   authToken: string,
-  credentialId: string | number,
-  credentialData: CreateCredentialI,
+  credentialData: any,
 ): Promise<CredentialI> {
-  const url = `${getApiUrl()}/credentials/${credentialId}`;
+  const url = `${getApiUrl()}/credentials`;
 
   return fetch(url, {
     method: "PUT",
@@ -256,7 +255,7 @@ function updateCredential(
   }).then(async (response) => {
     if (response.status === 405) {
       const patchRes = await fetch(url, {
-        method: "PUT",
+        method: "PATCH",
         headers: getHeaders(authToken),
         body: JSON.stringify(credentialData),
       });

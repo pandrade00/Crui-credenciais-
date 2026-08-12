@@ -106,9 +106,14 @@ describe('API Service Unit Tests', () => {
 
   it('deve atualizar credencial via PUT', async () => {
     const payload = {
-      description: 'Credencial Atualizada',
-      service_type: 'airway',
-      parameters: [{ credential_parameter_uuid: 'param-1', value: 'novo-valor' }],
+      description: 'QUERO-PASSAGEM-PRINCIPAL EDIT TESTE',
+      service_type: 'road',
+      identifier: 'QUERO-PASSAGEM-PRINCIPAL EDIT TESTE',
+      integration_code: 'INT-USCZEL',
+      credentials: [
+        { uuid: 'a270cc7c-2e6f-4e83-9a34-ac49c586db34', value: 'username-value-Principal' },
+      ],
+      uuid: 'a270cc7c-2ce0-4525-bea6-a02a43599175',
     };
 
     globalThis.fetch = vi.fn().mockResolvedValue({
@@ -116,7 +121,7 @@ describe('API Service Unit Tests', () => {
       json: async () => ({ data: { ...payload, credential_uuid: 'cred-123' } }),
     } as Response);
 
-    const res = await updateCredential('Bearer test-token', 'cred-123', payload);
+    const res = await updateCredential('Bearer test-token', payload);
     expect(res).toBeDefined();
     expect(globalThis.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/credentials/cred-123'),

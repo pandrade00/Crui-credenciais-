@@ -1,3 +1,4 @@
+import { fn } from "storybook/test";
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import Footer from './Footer';
@@ -12,7 +13,8 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   args: {
-    "page": 0,
-    "setPage": null
+    page: 1,
+    lastPage: 3,
+    setPage: fn(),
   },
 };

@@ -55,7 +55,8 @@ describe('API Service Unit Tests', () => {
     } as Response);
 
     const result = await getAllCredentials('Bearer test-token', 1);
-    expect(result).toEqual(mockCredentials);
+    expect(result.data).toEqual(mockCredentials);
+    expect(result.meta).toBeDefined();
   });
 
   it('deve chamar a rota /active quando status for true e /inactive quando false', async () => {
@@ -121,7 +122,7 @@ describe('API Service Unit Tests', () => {
       json: async () => ({ data: { ...payload, credential_uuid: 'cred-123' } }),
     } as Response);
 
-    const res = await updateCredential('Bearer test-token', payload);
+    const res = await updateCredential('Bearer test-token', 'cred-123', payload);
     expect(res).toBeDefined();
     expect(globalThis.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/credentials/cred-123'),

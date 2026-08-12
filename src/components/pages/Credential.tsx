@@ -34,22 +34,33 @@ function Credential() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [credentials, setCredentials] = useState<CredentialI[]>([]);
   const [page, setPage] = useState<number>(1);
+  const [lastPage, setLastPage] = useState<number>(1);
+  const [loading, setLoading] = useState<boolean>(true);
   const { token, login } = useAuth();
 
   const fetchCredentials = useCallback(async (authToken: string, currentPage: number, search: string) => {
     try {
-      const data = await getAllCredentials(authToken, currentPage, search);
-      setCredentials(data);
+      setLoading(true);
+      const response = await getAllCredentials(authToken, currentPage, search);
+      setCredentials(response.data || []);
+      if (response.meta?.last_page) {
+        setLastPage(response.meta.last_page);
+      }
     } catch (error: any) {
       if (error?.message === "UNAUTHORIZED") {
         console.warn("Token expirado, autenticando novamente...");
         const newToken = await getAuthToken();
         login(newToken);
-        const data = await getAllCredentials(newToken, currentPage, search);
-        setCredentials(data);
+        const response = await getAllCredentials(newToken, currentPage, search);
+        setCredentials(response.data || []);
+        if (response.meta?.last_page) {
+          setLastPage(response.meta.last_page);
+        }
       } else {
         console.error("Erro ao obter credenciais:", error);
       }
+    } finally {
+      setLoading(false);
     }
   }, [login]);
 
@@ -99,7 +110,11 @@ function Credential() {
         onAddSuccess={handleReload}
       />
       <DivStyled>
-        {filteredCredentials.length > 0 ? (
+        {loading ? (
+          <p style={{ textAlign: "center", color: "#8A9DB0", fontSize: "16px", marginTop: "32px", fontFamily: "Arial" }}>
+            Buscando credenciais...
+          </p>
+        ) : filteredCredentials.length > 0 ? (
           filteredCredentials.map((credential) => (
             <CardCredencial
               key={credential.credential_uuid}
@@ -120,7 +135,7 @@ function Credential() {
         )}
       </DivStyled>
 
-      {!searchTerm && <Footer page={page} setPage={setPage} />}
+      {!searchTerm && <Footer page={page} setPage={setPage} lastPage={lastPage} />}
     </>
   );
 }

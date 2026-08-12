@@ -74,28 +74,32 @@ const Number = styled('span', {
 interface FooterProps {
   page: number;
   setPage: Dispatch<SetStateAction<number>>; 
+  lastPage?: number;
 }
 
-function Footer({ page, setPage }: FooterProps) {
+function Footer({ page, setPage, lastPage = 1 }: FooterProps) {
+  const isFirstPage = page <= 1;
+  const isLastPage = page >= lastPage;
 
-const handlePrevious = () => {
-    setPage((prevPage) => {
-      if (prevPage > 1) return prevPage - 1;
-      return prevPage;
-    });
+  const handlePrevious = () => {
+    if (!isFirstPage) {
+      setPage((prevPage) => prevPage - 1);
+    }
   };
 
   const handleNext = () => {  
-   setPage((prevPage) => prevPage + 1); 
+    if (!isLastPage) {
+      setPage((prevPage) => prevPage + 1); 
+    }
   };
 
   return (
     <FooterStyled>
-    <ButtonFooter onClick={handlePrevious} text="Anterior"/>
-    <DivContainer>
-      <Number active={true}>{page}</Number>
-    </DivContainer>
-    <ButtonFooter onClick={handleNext} text="Próximo" />   
+      <ButtonFooter onClick={handlePrevious} text="Anterior" disabled={isFirstPage} />
+      <DivContainer>
+        <Number active={true}>{page}</Number>
+      </DivContainer>
+      <ButtonFooter onClick={handleNext} text="Próximo" disabled={isLastPage} />   
     </FooterStyled>
   );
 }

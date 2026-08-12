@@ -6,6 +6,7 @@ import type ProviderI from '../../interfaces/ProviderInterface';
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { validateCredentialForm } from '../../schemas/credentialSchema';
+import { CloseIcon, AlertCircleIcon } from '../common/Icons';
 
 const ModalOverlay = styled('div', {
     position: 'fixed',
@@ -257,7 +258,6 @@ function Modal({ onClose, onAdd }: ModalProps) {
             };
         });
 
-        // Validação Yup
         const validation = await validateCredentialForm(
             { nome: description, fornecedor: providerId, tipoServico: serviceType },
             providerParameters,
@@ -304,21 +304,14 @@ function Modal({ onClose, onAdd }: ModalProps) {
                 <ModalHeader>
                     <h2>Nova Credencial</h2>
                     <button type="button" onClick={onClose}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
+                        <CloseIcon width={16} height={16} stroke="#000000" />
                     </button>
                 </ModalHeader>
 
                 <Form onSubmit={handleSubmit}>
                     {errorMessage && (
                         <AlertMessage>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="12" y1="8" x2="12" y2="12" />
-                                <line x1="12" y1="16" x2="12.01" y2="16" />
-                            </svg>
+                            <AlertCircleIcon width={16} height={16} />
                             <span>{errorMessage}</span>
                         </AlertMessage>
                     )}

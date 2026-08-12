@@ -6,6 +6,7 @@ import { getProviderParameters, getCredentialById, updateCredential } from '../.
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { validateCredentialForm } from '../../schemas/credentialSchema';
+import { CloseIcon, AlertCircleIcon } from '../common/Icons';
 
 const AlertMessage = styled('div', {
     padding: '10px 14px',
@@ -194,7 +195,6 @@ function extractParamValue(param: any, allSavedItems: any[], rawDataObj?: any): 
     const paramTitle = String(param.title || param.label || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
     if (Array.isArray(allSavedItems)) {
-        // 1. Busca por UUID
         if (paramUuid) {
             for (const item of allSavedItems) {
                 const itemParamUuid = String(
@@ -215,7 +215,6 @@ function extractParamValue(param: any, allSavedItems: any[], rawDataObj?: any): 
             }
         }
 
-        // 2. Busca por Nome / Chave
         if (paramName) {
             for (const item of allSavedItems) {
                 const itemName = String(
@@ -232,7 +231,7 @@ function extractParamValue(param: any, allSavedItems: any[], rawDataObj?: any): 
             }
         }
 
-        // 3. Busca por Título / Rótulo
+        
         if (paramTitle) {
             for (const item of allSavedItems) {
                 const itemTitle = String(
@@ -442,21 +441,14 @@ function ModalEditar({ onClose, onSuccess, credential }: ModalProps) {
                 <ModalHeader>
                     <h2>Editar Credencial</h2>
                     <button type="button" onClick={onClose}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
+                        <CloseIcon width={16} height={16} stroke="#000000" />
                     </button>
                 </ModalHeader>
 
                 <Form onSubmit={handleSubmit}>
                     {errorMessage && (
                         <AlertMessage>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="12" y1="8" x2="12" y2="12" />
-                                <line x1="12" y1="16" x2="12.01" y2="16" />
-                            </svg>
+                            <AlertCircleIcon width={16} height={16} />
                             <span>{errorMessage}</span>
                         </AlertMessage>
                     )}

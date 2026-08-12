@@ -254,10 +254,9 @@ function updateCredential(
     headers: getHeaders(authToken),
     body: JSON.stringify(credentialData),
   }).then(async (response) => {
-    // Se o método PUT retornar 405 (Method Not Allowed), tenta com PATCH
     if (response.status === 405) {
       const patchRes = await fetch(url, {
-        method: "PATCH",
+        method: "PUT",
         headers: getHeaders(authToken),
         body: JSON.stringify(credentialData),
       });

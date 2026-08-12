@@ -6,6 +6,7 @@ import { getProviderParameters, getCredentialById, updateCredential } from '../.
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { validateCredentialForm } from '../../schemas/credentialSchema';
+import { CloseIcon, AlertCircleIcon } from '../common/Icons';
 
 const AlertMessage = styled('div', {
     padding: '10px 14px',
@@ -194,7 +195,6 @@ function extractParamValue(param: any, allSavedItems: any[], rawDataObj?: any): 
     const paramTitle = String(param.title || param.label || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
     if (Array.isArray(allSavedItems)) {
-        // 1. Busca por UUID
         if (paramUuid) {
             for (const item of allSavedItems) {
                 const itemParamUuid = String(
@@ -215,7 +215,6 @@ function extractParamValue(param: any, allSavedItems: any[], rawDataObj?: any): 
             }
         }
 
-        // 2. Busca por Nome / Chave
         if (paramName) {
             for (const item of allSavedItems) {
                 const itemName = String(
@@ -232,7 +231,7 @@ function extractParamValue(param: any, allSavedItems: any[], rawDataObj?: any): 
             }
         }
 
-        // 3. Busca por Título / Rótulo
+        
         if (paramTitle) {
             for (const item of allSavedItems) {
                 const itemTitle = String(
@@ -267,6 +266,8 @@ function ModalEditar({ onClose, onSuccess, credential }: ModalProps) {
     const [providerParameters, setProviderParameters] = useState<any[]>([]);
     const [paramValues, setParamValues] = useState<Record<string, string>>({});
     const [nome, setNome] = useState<string>(credential?.description || '');
+    const [rawCredentialData, setRawCredentialData] = useState<any>(null);
+    const [allSavedValues, setAllSavedValues] = useState<any[]>([]);
     const [tipoServico, setTipoServico] = useState<string>(credential?.tipoServico || '');
     const [availableServiceTypes, setAvailableServiceTypes] = useState<string[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -291,14 +292,15 @@ function ModalEditar({ onClose, onSuccess, credential }: ModalProps) {
             try {
                 setLoading(true);
                 
-               
                 const savedData = await getCredentialById(token as string, credential.credentialId);
+                if (savedData) {
+                    setRawCredentialData(savedData);
+                }
                 
                 const provId = credential.providerId || savedData?.provider?.uuid;
                 let schemaParams: any[] = [];
                 let services: string[] = [];
 
-               
                 if (provId) {
                     try {
                         const schemaData = await getProviderParameters(token as string, provId);
@@ -309,13 +311,14 @@ function ModalEditar({ onClose, onSuccess, credential }: ModalProps) {
                     }
                 }
 
-                
                 const allSavedItems: any[] = [
                     ...(Array.isArray(savedData?.credential_values) ? savedData.credential_values : []),
                     ...(Array.isArray(savedData?.parameters) ? savedData.parameters : []),
                     ...(Array.isArray(savedData?.credential_parameters) ? savedData.credential_parameters : []),
                     ...(Array.isArray(credential?.credential_values) ? credential.credential_values : []),
                 ];
+
+                setAllSavedValues(allSavedItems);
 
                 if (savedData) {
                     if (savedData.description) {
@@ -326,7 +329,6 @@ function ModalEditar({ onClose, onSuccess, credential }: ModalProps) {
                     }
                 }
 
-                
                 if (schemaParams.length === 0 && allSavedItems.length > 0) {
                     schemaParams = allSavedItems.map((cv: any) => ({
                         uuid: cv.parameter?.uuid || cv.credential_parameter_uuid || cv.uuid,
@@ -337,7 +339,6 @@ function ModalEditar({ onClose, onSuccess, credential }: ModalProps) {
                     }));
                 }
 
-               
                 const valuesMap: Record<string, string> = {};
                 for (const param of schemaParams) {
                     const val = extractParamValue(param, allSavedItems, savedData);
@@ -366,15 +367,32 @@ function ModalEditar({ onClose, onSuccess, credential }: ModalProps) {
         const description = (formData.get('nome') as string) || nome;
         const selectedService = (formData.get('tipoServico') as string) || tipoServico;
 
-        const parameters = providerParameters.map((param) => {
-            const fieldValue = paramValues[param.uuid] !== undefined ? paramValues[param.uuid] : (formData.get(`param_${param.uuid}`) as string || '');
+        const credentialsList = providerParameters.map((param) => {
+            const fieldValue = paramValues[param.uuid] !== undefined 
+                ? paramValues[param.uuid] 
+                : (formData.get(`param_${param.uuid}`) as string || '');
+            
+            const existingValueItem = allSavedValues.find((item: any) => {
+                const itemParamUuid = item.parameter?.uuid || item.credential_parameter_uuid || item.parameter_uuid;
+                const paramUuid = param.uuid;
+                const paramName = (param.name || param.key || '').toLowerCase().trim();
+                const itemName = (item.name || item.key || item.parameter?.name || '').toLowerCase().trim();
+                const paramTitle = (param.title || param.label || '').toLowerCase().trim();
+                const itemTitle = (item.title || item.label || item.parameter?.title || '').toLowerCase().trim();
+
+                return (itemParamUuid && paramUuid && String(itemParamUuid) === String(paramUuid)) ||
+                       (paramName && itemName && paramName === itemName) ||
+                       (paramTitle && itemTitle && paramTitle === itemTitle);
+            });
+
+            const targetUuid = existingValueItem?.uuid || param.uuid;
+
             return {
-                credential_parameter_uuid: param.uuid,
+                uuid: String(targetUuid),
                 value: fieldValue,
             };
         });
 
-        
         const validation = await validateCredentialForm(
             { nome: description, tipoServico: selectedService },
             providerParameters,
@@ -395,12 +413,15 @@ function ModalEditar({ onClose, onSuccess, credential }: ModalProps) {
         const payload = {
             description,
             service_type: selectedService,
-            parameters,
+            identifier: description,
+            integration_code: rawCredentialData?.integration_code || rawCredentialData?.provider?.integration_code || rawCredentialData?.code || 'INT-USCZEL',
+            credentials: credentialsList,
+            uuid: String(credential.credentialId || rawCredentialData?.credential_uuid || rawCredentialData?.uuid || ''),
         };
 
         try {
             setSaving(true);
-            await updateCredential(token as string, credential.credentialId, payload);
+            await updateCredential(token as string, payload);
             showToast("Credencial atualizada com sucesso!", "success");
             if (onSuccess) {
                 onSuccess();
@@ -420,21 +441,14 @@ function ModalEditar({ onClose, onSuccess, credential }: ModalProps) {
                 <ModalHeader>
                     <h2>Editar Credencial</h2>
                     <button type="button" onClick={onClose}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
+                        <CloseIcon width={16} height={16} stroke="#000000" />
                     </button>
                 </ModalHeader>
 
                 <Form onSubmit={handleSubmit}>
                     {errorMessage && (
                         <AlertMessage>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10" />
-                                <line x1="12" y1="8" x2="12" y2="12" />
-                                <line x1="12" y1="16" x2="12.01" y2="16" />
-                            </svg>
+                            <AlertCircleIcon width={16} height={16} />
                             <span>{errorMessage}</span>
                         </AlertMessage>
                     )}

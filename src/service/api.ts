@@ -43,14 +43,26 @@ function getAuthToken(): Promise<string> {const url = `${getApiUrl()}/login`; co
   });
 }
 
+export interface CredentialsResponseI {
+  data: CredentialI[];
+  meta?: {
+    current_page: number;
+    last_page: number;
+    total?: number;
+    per_page?: number;
+    from?: number;
+    to?: number;
+  };
+}
+
 async function getAllCredentials(
   authToken: string,
   page: number,
   searchQuery?: string,
-): Promise<CredentialI[]> {
-  if (!authToken) return [];
+): Promise<CredentialsResponseI> {
+  if (!authToken) return { data: [], meta: { current_page: 1, last_page: 1 } };
 
-  // Quando houver termo de busca, faz a varredura em todas as páginas para busca global
+ 
   if (searchQuery && searchQuery.trim() !== "") {
     try {
       const allCredentials: CredentialI[] = [];
@@ -86,14 +98,17 @@ async function getAllCredentials(
         }
       }
 
-      return allCredentials;
+      return {
+        data: allCredentials,
+        meta: { current_page: 1, last_page: 1, total: allCredentials.length },
+      };
     } catch (error: any) {
       if (error?.message === "UNAUTHORIZED") throw error;
       console.error("Erro na busca global de credenciais:", error);
     }
   }
 
-  // Comportamento normal de paginação
+
   const url = `${getApiUrl()}/credentials?page=${page ?? 1}`;
   const response = await fetch(url, {
     method: "GET",
@@ -111,7 +126,10 @@ async function getAllCredentials(
   if (!data.data) {
     throw new Error("Credenciais não encontradas na resposta da API");
   }
-  return data.data;
+  return {
+    data: data.data,
+    meta: data.meta || { current_page: page ?? 1, last_page: page ?? 1 },
+  };
 }
 
 function getAllProviders(
@@ -244,21 +262,32 @@ function createCredentialByProvider(
 
 function updateCredential(
   authToken: string,
-  credentialId: string | number,
-  credentialData: CreateCredentialI,
+  credentialIdOrData: string | number | any,
+  credentialData?: any,
 ): Promise<CredentialI> {
-  const url = `${getApiUrl()}/credentials/${credentialId}`;
+  let credentialId: string | number | undefined;
+  let bodyData: any;
+
+  if (credentialData !== undefined) {
+    credentialId = credentialIdOrData;
+    bodyData = credentialData;
+  } else {
+    bodyData = credentialIdOrData;
+    credentialId = bodyData?.uuid || bodyData?.credential_uuid;
+  }
+
+  const url = credentialId ? `${getApiUrl()}/credentials/${credentialId}` : `${getApiUrl()}/credentials`;
 
   return fetch(url, {
     method: "PUT",
     headers: getHeaders(authToken),
-    body: JSON.stringify(credentialData),
+    body: JSON.stringify(bodyData),
   }).then(async (response) => {
     if (response.status === 405) {
       const patchRes = await fetch(url, {
-        method: "PUT",
+        method: "PATCH",
         headers: getHeaders(authToken),
-        body: JSON.stringify(credentialData),
+        body: JSON.stringify(bodyData),
       });
       if (patchRes.status === 401) throw new Error("UNAUTHORIZED");
       if (!patchRes.ok) {

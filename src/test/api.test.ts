@@ -55,7 +55,8 @@ describe('API Service Unit Tests', () => {
     } as Response);
 
     const result = await getAllCredentials('Bearer test-token', 1);
-    expect(result).toEqual(mockCredentials);
+    expect(result.data).toEqual(mockCredentials);
+    expect(result.meta).toBeDefined();
   });
 
   it('deve chamar a rota /active quando status for true e /inactive quando false', async () => {
@@ -106,9 +107,14 @@ describe('API Service Unit Tests', () => {
 
   it('deve atualizar credencial via PUT', async () => {
     const payload = {
-      description: 'Credencial Atualizada',
-      service_type: 'airway',
-      parameters: [{ credential_parameter_uuid: 'param-1', value: 'novo-valor' }],
+      description: 'QUERO-PASSAGEM-PRINCIPAL EDIT TESTE',
+      service_type: 'road',
+      identifier: 'QUERO-PASSAGEM-PRINCIPAL EDIT TESTE',
+      integration_code: 'INT-USCZEL',
+      credentials: [
+        { uuid: 'a270cc7c-2e6f-4e83-9a34-ac49c586db34', value: 'username-value-Principal' },
+      ],
+      uuid: 'a270cc7c-2ce0-4525-bea6-a02a43599175',
     };
 
     globalThis.fetch = vi.fn().mockResolvedValue({
